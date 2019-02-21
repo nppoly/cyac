@@ -30,7 +30,6 @@ setup(
         "lib/cyac/trie.pyx", 
         "lib/cyac/ac.pyx"]),
     classifiers=[
-        'License :: MIT License',
         'Operating System :: POSIX :: Linux',
         'Operating System :: MacOS :: MacOS X',
         'Operating System :: Microsoft :: Windows',
