@@ -1,0 +1,7 @@
+global-include *.pyx
+global-include *.pxd
+global-exclude ac.cpp
+global-exclude trie.cpp
+global-exclude utf8.cpp
+global-exclude xstring.cpp
+global-exclude __pycache__
