@@ -1,4 +1,6 @@
 # cyac
+[![Python 2.7](https://img.shields.io/badge/python-2.7-blue.svg)](https://www.python.org/downloads/release/python-270/)
+[![Python 3.4+](https://img.shields.io/badge/python-3.4+-blue.svg)](https://www.python.org/downloads/release/python-340/)
 High performance Trie & Keyword Match & Replace Tool.
 
 It's implemented by cython, and will be compiled to cpp. The trie data structure is cedar, which is an optimized double array trie. it supports Python2.7 and 3.4+. It supports pickle to dump and load.
