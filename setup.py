@@ -20,7 +20,7 @@ setup(
     author_email="nppoly@foxmail.com",
     packages=["cyac"],
     package_dir={'cyac': 'lib/cyac'},
-    package_data={'cyac': ['*.pxd', 'unicode_portability.cpp']},
+    package_data={'cyac': ['*.pxd', 'cyac/unicode_portability.cpp']},
     include_package_data=True,
     long_description=long_description,
     install_requires=[],
