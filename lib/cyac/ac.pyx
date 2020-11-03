@@ -234,14 +234,15 @@ cdef class AC(object):
         ac.key_lens = key_lens
         return ac
 
-    def match(self, unicode text not None, sep = None):
+    def match(self, unicode text not None, sep = None, return_all = False):
         """
-        extract trie's keys from given string. only return the longest.
+        extract trie's keys from given string. 
         Args:
             text : unicode
             sep : set(int) | None
                 If you specify seperators. e.g. set([ord(' ')]), 
                 it only matches strings tween seperators.
+            return_all: by default, only return the longest. it's useful only when sep is None
         Iterates:
             matched: tuple(id, start_offset, end_offset)
         Examples:
@@ -269,7 +270,16 @@ cdef class AC(object):
                     nid_ = self.trie.child(nid, b)
                     if nid_ >= 0:
                         nid = nid_
-                        if self.trie.has_value(nid):
+                        if return_all:
+                            nid2 = nid
+                            while nid2 > 0:
+                                if self.trie.has_value(nid2):
+                                    vect.clear()
+                                    self.__fetch(i, nid2, vect)
+                                    for m in vect:
+                                        yield m.val, ignore_case_offset(align, xstr, m.start), ignore_case_offset(align, xstr, m.end - 1) + 1
+                                nid2 = self.fails[nid2]
+                        elif self.trie.has_value(nid):
                             vect.clear()
                             self.__fetch(i, nid, vect)
                             for m in vect:
