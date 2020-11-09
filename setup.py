@@ -25,6 +25,7 @@ setup(
     long_description=long_description,
     install_requires=["cython"],
     ext_modules = cythonize([
+        "lib/cyac/util.pyx",
         "lib/cyac/utf8.pyx",
         "lib/cyac/xstring.pyx",
         "lib/cyac/trie.pyx", 

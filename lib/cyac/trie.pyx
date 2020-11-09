@@ -2,8 +2,12 @@
 #    , profile=True, linetrace=True
 
 from libc.stdlib cimport malloc, free, realloc
+from libc.string cimport memcpy 
+from libc.stdio cimport FILE, fopen, fwrite, fclose
 from libcpp.string cimport string
 from cython cimport typeof
+from .util cimport check_buffer, magic_number
+from cpython.buffer cimport PyObject_GetBuffer, PyObject_CheckBuffer, PyBuffer_Release, PyBuffer_GetPointer, Py_buffer, PyBUF_WRITABLE, PyBUF_SIMPLE
 
 def new_object(obj):
     return obj.__new__(obj)
@@ -121,6 +125,7 @@ cdef class Trie(object):
         self.bheadF = 0
         self.bheadC = 0
         self.bheadO = 0
+        self.buff = NULL
     
     cdef inline int _get(self, byte_t *key, int key_size, int from_, int start):
         cdef int pos, value, to
@@ -749,9 +754,13 @@ cdef class Trie(object):
 
 
     def __dealloc__(self):
-        free(self.leafs)
-        free(self.array)
-        free(self.blocks)
+        if self.buff == NULL:
+            free(self.leafs)
+            free(self.array)
+            free(self.blocks)
+        else:
+            PyBuffer_Release(self.buff)
+            free(self.buff)
     
     def match_longest(self, unicode s not None, sep = None):
         """
@@ -925,12 +934,254 @@ cdef class Trie(object):
         self.array_size, self.capacity, self.ordered, self.ignore_case, \
         self.max_trial, self.leaf_size, \
         array, blocks, leafs, reject = data
+        if self.array != NULL:
+            free(self.array)
+        if self.blocks != NULL:
+            free(self.blocks)
+        if self.leafs != NULL:
+            free(self.leafs)
         self.array = <Node*> bytes_to_array(array, (self.capacity * sizeof(Node)))
         self.blocks = <Block*> bytes_to_array(blocks, (self.capacity >> 8) * sizeof(Block))
         self.leafs = <int*> bytes_to_array(leafs, self.key_capacity * sizeof(int))
         cdef int i
         for i in range(257):
             self.reject[i] = reject[i]
+
+    cdef write(self, FILE* ptr_fw):
+        fwrite(<void*>&magic_number, sizeof(magic_number), 1, ptr_fw)
+        cdef int size = self.buff_size()
+        fwrite(&size, sizeof(int), 1, ptr_fw)
+        fwrite(<void*>&self.key_num, sizeof(int), 1, ptr_fw)
+        fwrite(<void*>&self.key_capacity, sizeof(int), 1, ptr_fw)
+        fwrite(<void*>&self.bheadF, sizeof(int), 1, ptr_fw)
+        fwrite(<void*>&self.bheadC, sizeof(int), 1, ptr_fw)
+        fwrite(<void*>&self.bheadO, sizeof(int), 1, ptr_fw)
+        fwrite(<void*>&self.array_size, sizeof(int), 1, ptr_fw)
+        fwrite(<void*>&self.capacity, sizeof(int), 1, ptr_fw)
+        # for arm processor, we should align data in 4bytes.
+        cdef int val = self.ordered
+        fwrite(<void*>&val, sizeof(int), 1, ptr_fw)
+        val = self.ignore_case
+        fwrite(<void*>&val, sizeof(int), 1, ptr_fw)
+        fwrite(<void*>&self.max_trial, sizeof(int), 1, ptr_fw)
+        fwrite(<void*>&self.leaf_size, sizeof(int), 1, ptr_fw)
+        
+        fwrite(<void*>self.array, sizeof(Node), self.capacity, ptr_fw)
+        fwrite(<void*>self.blocks, sizeof(Block), self.capacity >> 8, ptr_fw)
+        fwrite(<void*>self.leafs, sizeof(int), self.key_capacity, ptr_fw)
+        fwrite(<void*>&self.reject, sizeof(int), 257, ptr_fw)
+
+    def buff_size(self):
+        """
+        return the memory size of buffer needed for exporting to external buffer.
+        """
+        return sizeof(magic_number) +  sizeof(int) + sizeof(self.key_num) + sizeof(self.key_capacity) + sizeof(self.bheadF) + sizeof(self.bheadC) + sizeof(self.bheadO) + \
+            sizeof(self.array_size) + sizeof(self.capacity) + sizeof(int) + sizeof(int) + sizeof(self.max_trial) + sizeof(self.leaf_size) + \
+            sizeof(Node) * self.capacity + sizeof(Block) * (self.capacity >> 8) + sizeof(int) * self.key_capacity + sizeof(int) * 257
+
+
+    def save(self, fname):
+        """
+        save data into binary file
+        """
+        cdef FILE *ptr_fw
+        cdef bytes bfname = fname.encode("utf8")
+        cdef char* path = bfname
+        ptr_fw = fopen(path, "wb")
+        if ptr_fw==NULL:
+            raise Exception("Cannot open file: %s" % fname)
+        self.write(ptr_fw)
+        fclose(ptr_fw)
+
+    cdef void _to_buff(self, void* buf):
+        cdef int offset = 0
+
+        cdef char* buff = <char*>buf
+        memcpy(buff, <void*>&magic_number, sizeof(magic_number))
+        offset += sizeof(magic_number)
+
+        cdef int size = self.buff_size()
+        memcpy(buff + offset, &size, sizeof(int))
+        offset += sizeof(int)
+
+        memcpy(buff + offset, <void*>&self.key_num, sizeof(int))
+        offset += sizeof(int)
+
+        memcpy(buff + offset, <void*>&self.key_capacity, sizeof(int))
+        offset += sizeof(int)
+
+        memcpy(buff + offset, <void*>&self.bheadF, sizeof(int))
+        offset += sizeof(int)
+
+        memcpy(buff + offset, <void*>&self.bheadC, sizeof(int))
+        offset += sizeof(int)
+
+        memcpy(buff + offset, <void*>&self.bheadO, sizeof(int))
+        offset += sizeof(int)
+
+        memcpy(buff + offset, <void*>&self.array_size, sizeof(int))
+        offset += sizeof(int)
+
+        memcpy(buff + offset, <void*>&self.capacity, sizeof(int))
+        offset += sizeof(int)
+
+        cdef int val = self.ordered
+        memcpy(buff + offset, <void*>&val, sizeof(bool))
+        offset += sizeof(int)
+
+        val = self.ignore_case
+        memcpy(buff + offset, <void*>&val, sizeof(bool))
+        offset += sizeof(int)
+
+        memcpy(buff + offset, <void*>&self.max_trial, sizeof(int))
+        offset += sizeof(int)
+
+        memcpy(buff + offset, <void*>&self.leaf_size, sizeof(int))
+        offset += sizeof(int)
+
+        memcpy(buff + offset, <void*>self.array, sizeof(Node) * self.capacity)
+        offset += sizeof(Node) * self.capacity
+
+        memcpy(buff + offset, <void*>self.blocks, sizeof(Block) * (self.capacity >> 8))
+        offset += sizeof(Block) * (self.capacity >> 8)
+
+        memcpy(buff + offset, <void*>self.leafs, sizeof(int) * self.key_capacity)
+        offset += sizeof(int) * self.key_capacity
+
+        memcpy(buff + offset, <void*>&self.reject, sizeof(int) * 257)
+        
+
+    def to_buff(self, buff):
+        """
+        copy data into buff
+        Args:
+            buff: object satisfy Python buff protocol
+        """
+        check_buffer(buff)
+        cdef Py_buffer view
+        if PyObject_GetBuffer(buff, &view, PyBUF_WRITABLE) != 0:
+            raise Exception("cannot get writable buffer: https://docs.python.org/zh-cn/3/c-api/buffer.html")
+        if self.buff_size() < view.len:
+            raise Exception("buff size is smaller than needed.")
+        cdef void *buf = view.buf
+        self._to_buff(buf)
+        PyBuffer_Release(&view)
+
+
+
+
+    @classmethod
+    def from_buff(cls, buff, copy = True):
+        """
+        init trie from buff
+        Args:
+            buff: object satisfy Python buff protocol https://docs.python.org/zh-cn/3/c-api/buffer.html
+            copy: whether copy data, by default, it copies data from buff
+        """
+        check_buffer(buff)
+        cdef Py_buffer* view = <Py_buffer*>malloc(sizeof(Py_buffer))
+        if PyObject_GetBuffer(buff, view, PyBUF_SIMPLE) != 0:
+            free(view)
+            raise Exception("cannot get readable buffer: https://docs.python.org/zh-cn/3/c-api/buffer.html")
+        cdef Trie trie = trie_from_buff(view.buf, view.len, copy)
+        if copy:
+            trie.buff = NULL
+            PyBuffer_Release(view)
+            free(view)
+        else:
+            trie.buff = view
+        return trie
+
+
+cdef Trie trie_from_buff(void* buf, int buf_size, bool copy):
+    cdef int offset = 0
+    cdef Trie trie = new_object(Trie)
+    cdef int magic, size
+    cdef char* buff = <char*>buf
+    memcpy(buff, <void*>&magic, sizeof(magic))
+    if magic != magic_number:
+        raise Exception("invalid data, magic number is not correct")
+    offset += sizeof(magic)
+
+    memcpy(&size, buff + offset, sizeof(int))
+    offset += sizeof(int)
+    if size > buf_size:
+        raise Exception("invalid data, buf size is not correct")
+
+    cdef int value = 0
+    memcpy(<void*>&value, buff + offset, sizeof(int))
+    trie.key_num = value
+    offset += sizeof(int)
+
+    memcpy(<void*>&value, buff + offset, sizeof(int))
+    trie.key_capacity = value
+    offset += sizeof(int)
+
+    memcpy(<void*>&value, buff + offset, sizeof(int))
+    trie.bheadF = value
+    offset += sizeof(int)
+
+    memcpy(<void*>&value, buff + offset, sizeof(int))
+    trie.bheadC = value
+    offset += sizeof(int)
+
+    memcpy(<void*>&value, buff + offset, sizeof(int))
+    trie.bheadO = value
+    offset += sizeof(int)
+
+    memcpy(<void*>&value, buff + offset, sizeof(int))
+    trie.array_size = value
+    offset += sizeof(int)
+
+    memcpy(<void*>&value, buff + offset, sizeof(int))
+    trie.capacity = value
+    offset += sizeof(int)
+
+    memcpy(<void*>&value, buff + offset, sizeof(bool))
+    trie.ordered = value
+    offset += sizeof(int)
+
+    memcpy(<void*>&value, buff + offset, sizeof(bool))
+    trie.ignore_case = value
+    offset += sizeof(int)
+
+    memcpy(<void*>&value, buff + offset, sizeof(int))
+    trie.max_trial = value
+    offset += sizeof(int)
+
+    memcpy(<void*>&value, buff + offset, sizeof(int))
+    trie.leaf_size = value
+    offset += sizeof(int)
+
+    if copy:
+        trie.array = <Node*>malloc(sizeof(Node) * trie.capacity)
+        memcpy(<void*>trie.array, buff + offset, sizeof(Node) * trie.capacity)
+        offset += sizeof(Node) * trie.capacity
+
+        trie.blocks = <Block*>malloc(sizeof(Block) * (trie.capacity >> 8))
+        memcpy(<void*>trie.blocks, buff + offset, sizeof(Block) * (trie.capacity >> 8))
+        offset += sizeof(Block) * (trie.capacity >> 8)
+
+        trie.leafs = <int*>malloc(sizeof(int) * trie.key_capacity)
+        memcpy(<void*>trie.leafs, buff + offset, sizeof(int) * trie.key_capacity)
+        offset += sizeof(int) * trie.key_capacity
+    else:
+        trie.array =  <Node*>(buff + offset)
+        offset += sizeof(Node) * trie.capacity
+
+        trie.blocks = <Block*>(buff + offset)
+        offset += sizeof(Block) * (trie.capacity >> 8)
+
+        trie.leafs = <int*>(buff + offset)
+        offset += sizeof(int) * trie.key_capacity
+
+
+    memcpy(<void*>&trie.reject, buff + offset, sizeof(int) * 257)
+    return trie
+
+
+
+
 
 
 

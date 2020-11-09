@@ -27,6 +27,6 @@ if __name__ == '__main__':
     for size in range(20000, len(txt), 20000):
         txt2 = txt[:size]
         print("match", "ac", size, timeit.timeit(
-            "match(ac, txt2)", setup=setup, number=5))
+            "match(ac, txt2, return_all=True)", setup=setup, number=5))
         print("match", "pyahocorasick", size, timeit.timeit(
             "match2(ac2, txt2)", setup=setup, number=5))

@@ -1,15 +1,21 @@
 #cython: language_level=3, boundscheck=False, overflowcheck=False
 #    , profile=True, linetrace=True
-from .trie cimport Trie, ignore_case_alignment, ignore_case_offset, array_to_bytes, bytes_to_array
+from .trie cimport Trie, ignore_case_alignment, ignore_case_offset, array_to_bytes, bytes_to_array, trie_from_buff
 from .xstring cimport xstring
 from .utf8 cimport byte_t
+from .util cimport check_buffer, magic_number
 from libcpp.deque  cimport deque
 from libc.stdlib cimport malloc, free, realloc
+from libc.string cimport memcpy 
+from libc.stdio cimport *
+from libcpp cimport bool
 from libc.string cimport memset
 from libcpp.vector cimport vector
+from cpython.buffer cimport PyObject_GetBuffer, PyObject_CheckBuffer, PyBuffer_Release, PyBuffer_GetPointer, Py_buffer, PyBUF_WRITABLE, PyBUF_SIMPLE
 
 def new_object(obj):
     return obj.__new__(obj)
+
 
 cdef struct OutNode:
     int next_
@@ -30,6 +36,7 @@ cdef class AC(object):
     cdef OutNode* output
     cdef int* fails
     cdef unsigned int* key_lens
+    cdef Py_buffer* buff
 
     property ignore_case:
         def __get__(self):
@@ -127,14 +134,19 @@ cdef class AC(object):
         self.output = NULL
         self.fails = NULL
         self.key_lens = NULL
+        self.buff = NULL
 
     def __dealloc__(self):
-        if self.output:
-            free(self.output)
-        if self.fails:
-            free(self.fails)
-        if self.key_lens:
-            free(self.key_lens)
+        if self.buff == NULL:
+            if self.output:
+                free(self.output)
+            if self.fails:
+                free(self.fails)
+            if self.key_lens:
+                free(self.key_lens)
+        else:
+            PyBuffer_Release(self.buff)
+            free(self.buff)
 
     cdef inline void __fetch(self, int idx, int nid, vector[Matched]& res):
         cdef OutNode *e = &self.output[nid]
@@ -325,10 +337,158 @@ cdef class AC(object):
 
     def __setstate__(self, data):
         self.trie, output, fails, key_lens = data
+        if self.output != NULL:
+            free(self.output)
+        if self.fails != NULL:
+            free(self.fails)
+        if self.key_lens != NULL:
+            free(self.key_lens)
         self.output = <OutNode*> bytes_to_array(output, self.trie.array_size * sizeof(OutNode))
         self.fails = <int*> bytes_to_array(fails, self.trie.array_size * sizeof(int))
         self.key_lens = <unsigned int*> bytes_to_array(key_lens, self.trie.leaf_size * sizeof(unsigned int))
 
+
+    cdef write(self, FILE* ptr_fw):
+        fwrite(<void*>&magic_number, sizeof(magic_number), 1, ptr_fw)
+        cdef int size = self.buff_size()
+        fwrite(<void*>&size, sizeof(size), 1, ptr_fw)
+        self.trie.write(ptr_fw)
+        fwrite(<void*>self.output, sizeof(OutNode), self.trie.array_size, ptr_fw)
+        fwrite(<void*>self.fails, sizeof(int), self.trie.array_size, ptr_fw)
+        fwrite(<void*>self.key_lens, sizeof(unsigned int), self.trie.array_size, ptr_fw)
+
+    def save(self, fname):
+        """
+        save data into binary file
+        """
+        cdef FILE *ptr_fw
+        cdef bytes bfname = fname.encode("utf8")
+        cdef char* path = bfname
+        ptr_fw = fopen(path, "wb")
+        if ptr_fw==NULL:
+            raise Exception("Cannot open file: %s" % fname)
+        self.write(ptr_fw)
+        fclose(ptr_fw)
+
+
+    def buff_size(self):
+        """
+        return the memory size of buffer needed for exporting to external buffer.
+        """
+        return self.trie.buff_size() + sizeof(magic_number) + sizeof(int) + (sizeof(OutNode) + sizeof(int) + sizeof(unsigned int)) * self.trie.array_size
+
+
+    def to_buff(self, buff):
+        """
+        copy data into buff
+        Args:
+            buff: object satisfy Python buff protocol
+        """
+        check_buffer(buff)
+        cdef Py_buffer view
+        if PyObject_GetBuffer(buff, &view, PyBUF_WRITABLE) != 0:
+            raise Exception("cannot get writable buffer: https://docs.python.org/zh-cn/3/c-api/buffer.html")
+        if self.buff_size() < view.len:
+            raise Exception("buff size is smaller than needed.")
+        cdef void* buf = view.buf
+        self._to_buff(buf)
+        PyBuffer_Release(&view)
+
+
+    @classmethod
+    def from_buff(cls, buff, copy = True):
+        """
+        init ac from buff
+        Args:
+            buff: object satisfy Python buff protocol https://docs.python.org/zh-cn/3/c-api/buffer.html
+            copy: whether copy data, by default, it copies data from buff
+        """
+        check_buffer(buff)
+        cdef Py_buffer* view = <Py_buffer*>malloc(sizeof(Py_buffer))
+        cdef Py_buffer* view2 = <Py_buffer*>malloc(sizeof(Py_buffer))
+        if PyObject_GetBuffer(buff, view, PyBUF_SIMPLE) != 0 or PyObject_GetBuffer(buff, view2, PyBUF_SIMPLE) != 0:
+            free(view)
+            free(view2)
+            raise Exception("cannot get readable buffer: https://docs.python.org/zh-cn/3/c-api/buffer.html")
+        ac = ac_from_buff(view.buf, view.len, copy)
+        if copy:
+            ac.buff = NULL
+            ac.trie.buff = NULL
+            PyBuffer_Release(view)
+            PyBuffer_Release(view2)
+            free(view)
+            free(view2)
+        else:
+
+            ac.buff = view
+            ac.trie.buff = view2
+        return ac
+
+    cdef void _to_buff(self, void* buf):
+        cdef int offset = 0
+
+        cdef char* buff = <char*>buf
+        memcpy(buff, <void*>&magic_number, sizeof(magic_number))
+        offset += sizeof(magic_number)
+
+        cdef int size = self.buff_size()
+        memcpy(buff + offset, <void*>&size, sizeof(size))
+        offset += sizeof(size)
+
+        self.trie._to_buff(buff + offset)
+        offset += self.trie.buff_size()
+
+        memcpy(buff + offset, <void*>self.output, sizeof(OutNode) * self.trie.array_size)
+        offset += sizeof(OutNode) * self.trie.array_size
+
+        memcpy(buff + offset, <void*>self.fails, sizeof(int) * self.trie.array_size)
+        offset += sizeof(int) * self.trie.array_size
+
+        memcpy(buff + offset, <void*>self.key_lens, sizeof(unsigned int) * self.trie.array_size)
+        offset += sizeof(unsigned int) * self.trie.array_size
+
+
+cdef AC ac_from_buff(void* buf, int buf_size, bool copy):
+
+    cdef char* buff = <char*>buf
+    cdef int offset = 0
+    cdef AC ac = new_object(AC)
+    cdef int magic, size
+    memcpy(buff, <void*>&magic, sizeof(magic))
+    if magic != magic_number:
+        raise Exception("invalid data, magic number is not correct")
+    offset += sizeof(magic)
+
+    memcpy(&size, buff + offset, sizeof(int))
+    offset += sizeof(int)
+    if size > buf_size:
+        raise Exception("invalid data, buf size is not correct")
+    trie = trie_from_buff(buff + offset, buf_size - offset, copy)
+    offset += trie.buff_size()
+    if copy:
+        ac.output = <OutNode*>malloc(sizeof(OutNode) * trie.array_size)
+        memcpy(<void*>ac.output, buff + offset, sizeof(OutNode) * trie.array_size)
+        offset += sizeof(OutNode) * trie.array_size
+
+        ac.fails = <int*>malloc(sizeof(int) * trie.array_size)
+        memcpy(<void*>ac.fails, buff + offset, sizeof(int) * trie.array_size)
+        offset += sizeof(int) * trie.array_size
+
+        ac.key_lens = <unsigned int*>malloc(sizeof(unsigned int) * trie.array_size)
+        memcpy(<void*>ac.key_lens, buff + offset, sizeof(unsigned int) * trie.array_size)
+        offset += sizeof(unsigned int) * trie.array_size
+    else:
+        ac.output = <OutNode*>(buff + offset)
+        offset += sizeof(OutNode) * trie.array_size
+
+        ac.fails = <int*>(buff + offset)
+        offset += sizeof(int) * trie.array_size
+
+        ac.key_lens = <unsigned int*>(buff + offset)
+        offset += sizeof(unsigned int) * trie.array_size
+
+    ac.trie = trie
+    return ac
 
 
 
