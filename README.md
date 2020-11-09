@@ -61,6 +61,19 @@ Aho Corasick extract
 >>>     print(id, start, end)
 ```
 
+Export to File, then we can use mmap to load file, share data between processes.
+```
+>>> ac = AC.build([u"python", u"ruby"])
+>>> ac.save("filename")
+>>> ac.to_buff(buff_object)
+```
+
+Init from Python Buffer
+```
+>>> AC.from_buff(buff_object, copy=True) # it allocs new memory
+>>> AC.from_buff(buff_object, copy=False) # it shares memory
+```
+
 
 # Performance
 On  Ubuntu 14.04.5/Intel(R) Core(TM) i7-4790K CPU @ 4.00GHz. 
