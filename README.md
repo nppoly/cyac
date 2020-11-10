@@ -70,10 +70,40 @@ Export to File, then we can use mmap to load file, share data between processes.
 
 Init from Python Buffer
 ```
+>>> import mmap
+>>> with open("filename", "r+b") as bf:
+        buff_object = mmap.mmap(bf.fileno(), 0)
 >>> AC.from_buff(buff_object, copy=True) # it allocs new memory
 >>> AC.from_buff(buff_object, copy=False) # it shares memory
 ```
 
+Multi Process example
+```
+import mmap
+from multiprocessing import Process
+from cyac import AC
+
+def get_mmap():
+    with open("random_data", "r+b") as bf:
+        buff_object = mmap.mmap(bf.fileno(), 0)
+    ac_trie = AC.from_buff(buff_object, copy=False)
+    # Do your aho searches here. "match" function is process safe.
+
+processes_list = list()
+for x in range(0, 6):
+    p = Process(
+        target=get_mmap,
+    )
+    p.start()
+    processes_list.append(p)
+for p in processes_list:
+    p.join()
+```
+*For more information about multiprocessing and memory analysis in cyac, see this [issue](https://github.com/nppoly/cyac/issues/1).*
+
+# Thread safety
+The function *"match"* of the AC automaton is thread/process safe. It is possible to find matches in parrallel with a shared AC automaton, but not 
+write/append patterns to it. 
 
 # Performance
 On  Ubuntu 14.04.5/Intel(R) Core(TM) i7-4790K CPU @ 4.00GHz. 
