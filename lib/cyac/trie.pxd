@@ -3,6 +3,8 @@ from libc.string cimport strlen, memcpy, memset
 from libc.stdlib cimport malloc, free, realloc
 from libcpp cimport bool
 from libcpp.deque  cimport deque
+from libc.stdio cimport *
+from libcpp cimport bool
 import cython
 from .xstring cimport xstring, byte_t, ignore_case_alignment, unicode_int_t, stringbuf
 
@@ -55,6 +57,7 @@ cdef class Trie(object):
     cdef int last_remove_leaf
     cdef int* leafs
     cdef int leaf_size
+    cdef Py_buffer* buff
     cdef inline int _get(self, byte_t *key, int key_size, int from_, int start)
     cdef inline int follow(self, int from_, byte_t label)
     cdef bool has_label(self, int id_, byte_t label)
@@ -96,3 +99,7 @@ cdef class Trie(object):
     cdef inline int find_place(self)
     cdef inline int find_places(self, byte_t *child, int child_num)
     cdef inline int resolve(self, int from_n, int base_n, byte_t label_n)
+    cdef void _to_buff(self, void* buff)
+    cdef write(self, FILE* ptr_fw)
+
+cdef Trie trie_from_buff(void* buf, int buf_size, bool copy)

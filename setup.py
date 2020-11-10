@@ -12,7 +12,7 @@ except IOError:
     long_description = ""
 
 setup(
-    version="1.0",
+    version="1.1",
     description="High performance Trie and Ahocorasick automata (AC automata) for python",
     name="cyac",
     url="https://github.com/nppoly/cyac",
@@ -25,6 +25,7 @@ setup(
     long_description=long_description,
     install_requires=["cython"],
     ext_modules = cythonize([
+        "lib/cyac/util.pyx",
         "lib/cyac/utf8.pyx",
         "lib/cyac/xstring.pyx",
         "lib/cyac/trie.pyx", 
