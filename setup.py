@@ -22,6 +22,7 @@ setup(
     package_dir={'cyac': 'lib/cyac'},
     package_data={'cyac': ['*.pxd', 'cyac/unicode_portability.cpp']},
     include_package_data=True,
+    long_description_content_type="text/markdown",
     long_description=long_description,
     install_requires=["cython"],
     ext_modules = cythonize([
