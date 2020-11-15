@@ -1,9 +1,15 @@
 #-*- coding:utf-8 -*- 
 import unittest
 from cyac import AC
+from pathlib import Path
 import sys
+import os
+
 
 class TestAC(unittest.TestCase):
+
+    words_file = "test.txt" # change name here if test.txt != test.txt
+
     def test_init(self):
         ac = AC.build([u'我', u'我是', u'是中'])
         arr = [(end_, val) for val, start_, end_ in ac.match(u"我是中国人")]
@@ -34,3 +40,14 @@ class TestAC(unittest.TestCase):
         sep = set([ord(" ")])
         arr = [(end_, val) for val, start_, end_ in ac.match(u"aai̇bİ", sep)]
         self.assertEqual(arr, [(6, 2)])
+
+    def test_save(self):
+        ac_file = "ac_cyac"
+        with open(TestAC.words_file, "r", encoding="utf-8") as f:
+            words = list(f)
+        ac = AC.build(words)
+        ac_to_be_saved_size = ac.buff_size()
+        ac.save(ac_file)
+        ac_saved_size = Path(ac_file).stat().st_size
+        self.assertEqual(ac_to_be_saved_size, ac_saved_size)
+        os.remove(ac_file)
