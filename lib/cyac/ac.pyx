@@ -355,7 +355,7 @@ cdef class AC(object):
         self.trie.write(ptr_fw)
         fwrite(<void*>self.output, sizeof(OutNode), self.trie.array_size, ptr_fw)
         fwrite(<void*>self.fails, sizeof(int), self.trie.array_size, ptr_fw)
-        fwrite(<void*>self.key_lens, sizeof(unsigned int), self.trie.array_size, ptr_fw)
+        fwrite(<void*>self.key_lens, sizeof(unsigned int), self.trie.leaf_size, ptr_fw)
 
     def save(self, fname):
         """
@@ -375,7 +375,7 @@ cdef class AC(object):
         """
         return the memory size of buffer needed for exporting to external buffer.
         """
-        return self.trie.buff_size() + sizeof(magic_number) + sizeof(int) + (sizeof(OutNode) + sizeof(int) + sizeof(unsigned int)) * self.trie.array_size
+        return self.trie.buff_size() + sizeof(magic_number) + sizeof(int) + (sizeof(OutNode) + sizeof(int)) * self.trie.array_size + sizeof(unsigned int) * self.trie.leaf_size
 
 
     def to_buff(self, buff):
@@ -444,8 +444,8 @@ cdef class AC(object):
         memcpy(buff + offset, <void*>self.fails, sizeof(int) * self.trie.array_size)
         offset += sizeof(int) * self.trie.array_size
 
-        memcpy(buff + offset, <void*>self.key_lens, sizeof(unsigned int) * self.trie.array_size)
-        offset += sizeof(unsigned int) * self.trie.array_size
+        memcpy(buff + offset, <void*>self.key_lens, sizeof(unsigned int) * self.trie.leaf_size)
+        offset += sizeof(unsigned int) * self.trie.leaf_size
 
 
 cdef AC ac_from_buff(void* buf, int buf_size, bool copy):
@@ -474,9 +474,9 @@ cdef AC ac_from_buff(void* buf, int buf_size, bool copy):
         memcpy(<void*>ac.fails, buff + offset, sizeof(int) * trie.array_size)
         offset += sizeof(int) * trie.array_size
 
-        ac.key_lens = <unsigned int*>malloc(sizeof(unsigned int) * trie.array_size)
-        memcpy(<void*>ac.key_lens, buff + offset, sizeof(unsigned int) * trie.array_size)
-        offset += sizeof(unsigned int) * trie.array_size
+        ac.key_lens = <unsigned int*>malloc(sizeof(unsigned int) * trie.leaf_size)
+        memcpy(<void*>ac.key_lens, buff + offset, sizeof(unsigned int) * trie.leaf_size)
+        offset += sizeof(unsigned int) * trie.leaf_size
     else:
         ac.output = <OutNode*>(buff + offset)
         offset += sizeof(OutNode) * trie.array_size
@@ -485,7 +485,7 @@ cdef AC ac_from_buff(void* buf, int buf_size, bool copy):
         offset += sizeof(int) * trie.array_size
 
         ac.key_lens = <unsigned int*>(buff + offset)
-        offset += sizeof(unsigned int) * trie.array_size
+        offset += sizeof(unsigned int) * trie.leaf_size
 
     ac.trie = trie
     return ac
