@@ -1026,11 +1026,11 @@ cdef class Trie(object):
         offset += sizeof(int)
 
         cdef int val = self.ordered
-        memcpy(buff + offset, <void*>&val, sizeof(bool))
+        memcpy(buff + offset, <void*>&val, sizeof(int))
         offset += sizeof(int)
 
         val = self.ignore_case
-        memcpy(buff + offset, <void*>&val, sizeof(bool))
+        memcpy(buff + offset, <void*>&val, sizeof(int))
         offset += sizeof(int)
 
         memcpy(buff + offset, <void*>&self.max_trial, sizeof(int))
@@ -1137,11 +1137,11 @@ cdef Trie trie_from_buff(void* buf, int buf_size, bool copy):
     trie.capacity = value
     offset += sizeof(int)
 
-    memcpy(<void*>&value, buff + offset, sizeof(bool))
+    memcpy(<void*>&value, buff + offset, sizeof(int))
     trie.ordered = value
     offset += sizeof(int)
 
-    memcpy(<void*>&value, buff + offset, sizeof(bool))
+    memcpy(<void*>&value, buff + offset, sizeof(int))
     trie.ignore_case = value
     offset += sizeof(int)
 
