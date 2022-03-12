@@ -7,12 +7,12 @@ from Cython.Distutils import build_ext
 # import os
 # os.environ['CFLAGS'] = '-O0'
 try:
-    long_description = open("README.md").read()
+    long_description = open("README.md", encoding="utf8").read()
 except IOError:
     long_description = ""
 
 setup(
-    version="1.3",
+    version="1.4",
     description="High performance Trie and Ahocorasick automata (AC automata) for python",
     name="cyac",
     url="https://github.com/nppoly/cyac",
