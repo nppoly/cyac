@@ -79,6 +79,10 @@ cdef class AC(object):
         """
         for x in self.trie.predict(s):
             yield x
+    
+    def __iter__(self):
+        for id_ in self.trie:
+            yield id_
 
     def items(self):
         """

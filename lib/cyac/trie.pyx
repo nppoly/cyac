@@ -531,6 +531,13 @@ cdef class Trie(object):
     def __contains__(self, unicode t):
         return self.get(t) >= 0
 
+    def __iter__(self):
+        cdef int id_
+        cdef int lnode
+        for id_ in range(0,self.leaf_size):
+            lnode = self.leafs[id_]
+            if lnode >= 0:
+                yield id_
 
     def __getitem__(self, sid):
         """
@@ -543,8 +550,14 @@ cdef class Trie(object):
         Raises:
             AttributeError: If `sid` is not unicode or int
         """
+        cdef int lnode
         if isinstance(sid, int):
-            bs = self.key(self.leafs[sid])
+            if sid >= self.leaf_size:
+                raise AttributeError("index out of range: %d >= %d" % (sid, self.leaf_size))
+            lnode = self.leafs[sid]
+            if lnode < 0:
+                raise AttributeError("Cannot find with id: %d" % sid)
+            bs = self.key(lnode)
             bs = bs.decode("utf8")
             return bs
         elif isinstance(sid, unicode):
@@ -746,6 +759,7 @@ cdef class Trie(object):
             >>>     print(id_, key)
         """
         cdef int id_
+        cdef int lnode
         for id_ in range(0,self.leaf_size):
             lnode = self.leafs[id_]
             if lnode >= 0:

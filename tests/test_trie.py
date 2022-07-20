@@ -214,3 +214,16 @@ class TestTrie(unittest.TestCase):
         trie = Trie()
         self.assertEqual(trie.insert(u""), -1)
 
+    def test_invalid_id(self):
+        trie = Trie()
+        trie.insert("hello")
+        trie.insert("world")
+        with self.assertRaises(AttributeError):
+            trie[3]
+
+        trie.remove("hello")
+        with self.assertRaises(AttributeError):
+            trie[0]
+        
+        trie.insert("hello2")
+        trie[0]
