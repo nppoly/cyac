@@ -1,9 +1,20 @@
 #!/usr/bin/env python3
 
 from setuptools import setup
-from Cython.Build import cythonize
 from distutils.extension import Extension
-from Cython.Distutils import build_ext
+
+try:
+    from Cython.Build import cythonize
+    from Cython.Distutils import build_ext
+except ImportError:
+    def cythonize(*args, **kwargs):
+        from Cython.Build import cythonize
+        return cythonize(*args, **kwargs)
+
+    def build_ext(*args, **kwargs):
+        from Cython.Distutils import build_ext
+        return build_ext(*args, **kwargs)
+
 # import os
 # os.environ['CFLAGS'] = '-O0'
 try:
