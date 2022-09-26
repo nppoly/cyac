@@ -36,6 +36,7 @@ setup(
     long_description_content_type="text/markdown",
     long_description=long_description,
     install_requires=["cython"],
+    setup_requires=['Cython'],
     ext_modules = cythonize([
         "lib/cyac/util.pyx",
         "lib/cyac/utf8.pyx",
