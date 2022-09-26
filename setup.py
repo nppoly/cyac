@@ -3,17 +3,27 @@
 from setuptools import setup
 from distutils.extension import Extension
 
-try:
-    from Cython.Build import cythonize
-    from Cython.Distutils import build_ext
-except ImportError:
-    def cythonize(*args, **kwargs):
-        from Cython.Build import cythonize
-        return cythonize(*args, **kwargs)
-
-    def build_ext(*args, **kwargs):
-        from Cython.Distutils import build_ext
-        return build_ext(*args, **kwargs)
+ext_modules = [
+    Extension(
+        'util',
+        sources=["lib/cyac/util.pyx"],
+    ),
+    Extension(
+        'utf8',
+        sources=["lib/cyac/utf8.pyx"],
+    ),
+    Extension(
+        'xstring',
+        sources=["lib/cyac/xstring.pyx"],
+    ),
+    Extension(
+        'trie',
+        sources=["lib/cyac/trie.pyx"],
+    ),
+    Extension(
+        'ac',
+        sources=["lib/cyac/ac.pyx"],
+    ),]
 
 # import os
 # os.environ['CFLAGS'] = '-O0'
@@ -37,12 +47,7 @@ setup(
     long_description=long_description,
     install_requires=["cython"],
     setup_requires=['Cython'],
-    ext_modules = cythonize([
-        "lib/cyac/util.pyx",
-        "lib/cyac/utf8.pyx",
-        "lib/cyac/xstring.pyx",
-        "lib/cyac/trie.pyx", 
-        "lib/cyac/ac.pyx"]),
+    ext_modules = ext_modules,
     classifiers=[
         'Operating System :: POSIX :: Linux',
         'Operating System :: MacOS :: MacOS X',
