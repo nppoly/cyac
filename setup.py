@@ -3,27 +3,13 @@
 from setuptools import setup
 from distutils.extension import Extension
 
-ext_modules = [
-    Extension(
-        'util',
-        sources=["lib/cyac/util.pyx"],
-    ),
-    Extension(
-        'utf8',
-        sources=["lib/cyac/utf8.pyx"],
-    ),
-    Extension(
-        'xstring',
-        sources=["lib/cyac/xstring.pyx"],
-    ),
-    Extension(
-        'trie',
-        sources=["lib/cyac/trie.pyx"],
-    ),
-    Extension(
-        'ac',
-        sources=["lib/cyac/ac.pyx"],
-    ),]
+# Delayed import; https://stackoverflow.com/questions/37471313/setup-requires-with-cython
+try:
+    from Cython.Build import cythonize
+except ImportError:
+     def cythonize(*args, **kwargs):
+         from Cython.Build import cythonize
+         return cythonize(*args, **kwargs)
 
 # import os
 # os.environ['CFLAGS'] = '-O0'
@@ -45,9 +31,14 @@ setup(
     include_package_data=True,
     long_description_content_type="text/markdown",
     long_description=long_description,
-    install_requires=["cython"],
+    install_requires=['cython>=0.29.0', 'Cython>=0.29.0'],
     setup_requires=['Cython'],
-    ext_modules = ext_modules,
+    ext_modules = cythonize([
+        "lib/cyac/util.pyx",
+        "lib/cyac/utf8.pyx",
+        "lib/cyac/xstring.pyx",
+        "lib/cyac/trie.pyx", 
+        "lib/cyac/ac.pyx"]),
     classifiers=[
         'Operating System :: POSIX :: Linux',
         'Operating System :: MacOS :: MacOS X',
