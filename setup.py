@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
 
 from setuptools import setup
-from Cython.Build import cythonize
 from distutils.extension import Extension
-from Cython.Distutils import build_ext
+
+# Delayed import; https://stackoverflow.com/questions/37471313/setup-requires-with-cython
+try:
+    from Cython.Build import cythonize
+except ImportError:
+     def cythonize(*args, **kwargs):
+         from Cython.Build import cythonize
+         return cythonize(*args, **kwargs)
+
 # import os
 # os.environ['CFLAGS'] = '-O0'
 try:
@@ -24,7 +31,8 @@ setup(
     include_package_data=True,
     long_description_content_type="text/markdown",
     long_description=long_description,
-    install_requires=["cython"],
+    install_requires=['cython>=0.29.0', 'Cython>=0.29.0'],
+    setup_requires=['Cython'],
     ext_modules = cythonize([
         "lib/cyac/util.pyx",
         "lib/cyac/utf8.pyx",
