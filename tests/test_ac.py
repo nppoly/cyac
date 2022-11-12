@@ -34,3 +34,11 @@ class TestAC(unittest.TestCase):
         sep = set([ord(" ")])
         arr = [(end_, val) for val, start_, end_ in ac.match(u"aai̇bİ", sep)]
         self.assertEqual(arr, [(6, 2)])
+
+    def test_match_longest(self):
+        ac = AC.build([u"py", u"python"])
+        text = 'python'
+        matched = list(ac.match(text, no_substring=True))
+        print(matched)
+        self.assertEquals(len(matched), 1)
+        self.assertEquals(text[matched[0][1]:matched[0][2]], "python")

@@ -250,7 +250,7 @@ cdef class AC(object):
         ac.key_lens = key_lens
         return ac
 
-    def match(self, unicode text not None, sep = None, return_all = False):
+    def match(self, unicode text not None, sep = None, return_all = False, no_substring = False):
         """
         extract trie's keys from given string. 
         Args:
@@ -258,7 +258,8 @@ cdef class AC(object):
             sep : set(int) | None
                 If you specify seperators. e.g. set([ord(' ')]), 
                 it only matches strings tween seperators.
-            return_all: by default, only return the longest. it's useful only when sep is None
+            return_all: by default, only return the longest substring in substrings with same end index. it's useful only when sep is None.
+            no_substring: for any one matched substring,  it's not substring of any other matched substring.  If this is true, return_all is disabled. it's useful only when sep is None.
         Iterates:
             matched: tuple(id, start_offset, end_offset)
         Examples:
@@ -269,6 +270,7 @@ cdef class AC(object):
         cdef xstring prev_xstr = xstr
         cdef ignore_case_alignment align = None
         cdef vector[Matched] vect
+        cdef vector[Matched] matched
         cdef Matched m
         if self.trie.ignore_case:
             align = ignore_case_alignment(xstr)
@@ -278,6 +280,13 @@ cdef class AC(object):
         cdef int nid_, i, chr_
         cdef int nid = 0
         cdef byte_t b
+        cdef int start_idx = 0
+        cdef bool return_all_ = return_all
+        cdef bool no_substring_ = no_substring
+        if no_substring_:
+            memset(&m, 0, sizeof(Matched))
+            m.val = -1
+            matched.resize(xstr.char_num, m)
 
         if sep is None:
             for i in range(byte_num):
@@ -286,7 +295,7 @@ cdef class AC(object):
                     nid_ = self.trie.child(nid, b)
                     if nid_ >= 0:
                         nid = nid_
-                        if return_all:
+                        if return_all_:
                             nid2 = nid
                             while nid2 > 0:
                                 if self.trie.has_value(nid2):
@@ -299,11 +308,21 @@ cdef class AC(object):
                             vect.clear()
                             self.__fetch(i, nid, vect)
                             for m in vect:
-                                yield m.val, ignore_case_offset(align, xstr, m.start), ignore_case_offset(align, xstr, m.end - 1) + 1
+                                if no_substring_:
+                                    start_idx = ignore_case_offset(align, xstr, m.start)
+                                    if matched[start_idx].val == -1 or matched[start_idx].end < m.end:
+                                        matched[start_idx] = m
+                                else:
+                                    yield m.val, ignore_case_offset(align, xstr, m.start), ignore_case_offset(align, xstr, m.end - 1) + 1
                         break
                     if nid == 0:
                         break
                     nid = self.fails[nid]
+            if no_substring_:
+                for i in range(matched.size()):
+                    if matched[i].val != -1:
+                        m = matched[i]
+                        yield m.val, i, ignore_case_offset(align, xstr, m.end - 1) + 1
         else:
             for i in range(byte_num):
                 b = bytes_[i]
