@@ -29,5 +29,5 @@ class TestPickle(unittest.TestCase):
         with open("ac.pkl", "rb") as fi:
             ac = pickle.load(fi)
         self.assertEqual(ac.size, 3)
-        arr = [(end_, val) for val, start_, end_ in ac.match(u"aai̇bİa")]
+        arr = [(end_, val) for val, start_, end_ in ac.match(u"aai̇bİa", return_all=True)]
         self.assertEqual(arr, [(4, 1), (4, 0), (6, 2)])

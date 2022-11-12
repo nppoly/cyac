@@ -240,9 +240,10 @@ cdef class AC(object):
                         break
                     fid = fails[fid]
                 fails[id_] = fid
-                if trie.has_value(fid):
-                    output[id_].next_ = fid
-                    # print("output[%s].next_ = %s" % (id_, fid))
+                # if trie.has_value(fid):
+                #     print("output[%d].next_ = %s" % (id_, fid))
+                #     output[id_].next_ = fid
+                #     # print("output[%s].next_ = %s" % (id_, fid))
         ac = AC()
         ac.trie = trie
         ac.output = output
@@ -250,7 +251,7 @@ cdef class AC(object):
         ac.key_lens = key_lens
         return ac
 
-    def match(self, unicode text not None, sep = None, return_all = False, no_substring = False):
+    def match(self, unicode text not None, sep = None, return_all = True):
         """
         extract trie's keys from given string. 
         Args:
@@ -258,8 +259,7 @@ cdef class AC(object):
             sep : set(int) | None
                 If you specify seperators. e.g. set([ord(' ')]), 
                 it only matches strings tween seperators.
-            return_all: by default, only return the longest substring in substrings with same end index. it's useful only when sep is None.
-            no_substring: for any one matched substring,  it's not substring of any other matched substring.  If this is true, return_all is disabled. it's useful only when sep is None.
+            return_all: if it's false, only return the longest. it's useful only when sep is None
         Iterates:
             matched: tuple(id, start_offset, end_offset)
         Examples:
@@ -282,8 +282,7 @@ cdef class AC(object):
         cdef byte_t b
         cdef int start_idx = 0
         cdef bool return_all_ = return_all
-        cdef bool no_substring_ = no_substring
-        if no_substring_:
+        if not return_all_:
             memset(&m, 0, sizeof(Matched))
             m.val = -1
             matched.resize(xstr.char_num, m)
@@ -308,17 +307,15 @@ cdef class AC(object):
                             vect.clear()
                             self.__fetch(i, nid, vect)
                             for m in vect:
-                                if no_substring_:
-                                    start_idx = ignore_case_offset(align, xstr, m.start)
-                                    if matched[start_idx].val == -1 or matched[start_idx].end < m.end:
-                                        matched[start_idx] = m
-                                else:
-                                    yield m.val, ignore_case_offset(align, xstr, m.start), ignore_case_offset(align, xstr, m.end - 1) + 1
+                                start_idx = ignore_case_offset(align, xstr, m.start)
+                                if matched[start_idx].val == -1 or matched[start_idx].end < m.end:
+                                    matched[start_idx] = m
+                                # yield m.val, ignore_case_offset(align, xstr, m.start), ignore_case_offset(align, xstr, m.end - 1) + 1
                         break
                     if nid == 0:
                         break
                     nid = self.fails[nid]
-            if no_substring_:
+            if not return_all_:
                 for i in range(matched.size()):
                     if matched[i].val != -1:
                         m = matched[i]

@@ -38,7 +38,12 @@ class TestAC(unittest.TestCase):
     def test_match_longest(self):
         ac = AC.build([u"py", u"python"])
         text = 'python'
-        matched = list(ac.match(text, no_substring=True))
-        print(matched)
+        matched = list(ac.match(text, return_all=False))
         self.assertEquals(len(matched), 1)
         self.assertEquals(text[matched[0][1]:matched[0][2]], "python")
+
+    def test_return_all(self):
+        ac = AC.build([u"hello@gmail.com", u"gmail.com"])
+        var1 = "gmailhello@gmail.comhiaa"
+        matched = list(ac.match(var1))
+        self.assertEquals(len(matched), 2)
