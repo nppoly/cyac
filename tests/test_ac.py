@@ -34,3 +34,15 @@ class TestAC(unittest.TestCase):
         sep = set([ord(" ")])
         arr = [(end_, val) for val, start_, end_ in ac.match(u"aai̇bİ", sep)]
         self.assertEqual(arr, [(6, 2)])
+
+    def test_match_all(self):
+        ac = AC.build([u"hello@gmail.comhi", u"gmail.com"])
+        var1 = "gmailhello@gmail.comhiaa"
+        lst = list(ac.match(var1))
+        self.assertEqual(len(lst), 2)
+
+    def test_match_longest(self):
+        ac = AC.build([u"hello@gmail.comhi", u"gmail.com"])
+        var1 = "gmailhello@gmail.comhiaa"
+        lst = list(ac.match(var1, return_all=False))
+        self.assertEqual(len(lst), 1)

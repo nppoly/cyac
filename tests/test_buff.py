@@ -40,6 +40,7 @@ class TestBuff(unittest.TestCase):
         bs2 = bytearray(ac.buff_size())
         ac.to_buff(bs2)
         self.assertEqual(bs2, bs)
+        self._check_ac_correct(ac)
         self._check_ac_correct(AC.from_buff(bs2, copy=True))
         self._check_ac_correct(AC.from_buff(bs2, copy=False))
 
