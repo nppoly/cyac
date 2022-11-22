@@ -5,9 +5,11 @@ from libc.stdlib cimport malloc, free, realloc
 from libc.string cimport memcpy 
 from libc.stdio cimport FILE, fopen, fwrite, fclose
 from libcpp.string cimport string
+from libc.stdint cimport uint32_t
 from cython cimport typeof
-from .util cimport check_buffer, magic_number
+from .util cimport check_buffer
 from cpython.buffer cimport PyObject_GetBuffer, PyObject_CheckBuffer, PyBuffer_Release, PyBuffer_GetPointer, Py_buffer, PyBUF_WRITABLE, PyBUF_SIMPLE
+from .version import magic_number, legacy_magic_number
 
 def new_object(obj):
     return obj.__new__(obj)
@@ -962,7 +964,8 @@ cdef class Trie(object):
             self.reject[i] = reject[i]
 
     cdef write(self, FILE* ptr_fw):
-        fwrite(<void*>&magic_number, sizeof(magic_number), 1, ptr_fw)
+        cdef uint32_t magic = magic_number
+        fwrite(<void*>&magic, sizeof(magic), 1, ptr_fw)
         cdef int size = self.buff_size()
         fwrite(&size, sizeof(int), 1, ptr_fw)
         fwrite(<void*>&self.key_num, sizeof(int), 1, ptr_fw)
@@ -989,7 +992,7 @@ cdef class Trie(object):
         """
         return the memory size of buffer needed for exporting to external buffer.
         """
-        return sizeof(magic_number) +  sizeof(int) + sizeof(self.key_num) + sizeof(self.key_capacity) + sizeof(self.bheadF) + sizeof(self.bheadC) + sizeof(self.bheadO) + \
+        return sizeof(uint32_t) +  sizeof(int) + sizeof(self.key_num) + sizeof(self.key_capacity) + sizeof(self.bheadF) + sizeof(self.bheadC) + sizeof(self.bheadO) + \
             sizeof(self.array_size) + sizeof(self.capacity) + sizeof(int) + sizeof(int) + sizeof(self.max_trial) + sizeof(self.leaf_size) + \
             sizeof(Node) * self.capacity + sizeof(Block) * (self.capacity >> 8) + sizeof(int) * self.key_capacity + sizeof(int) * 257
 
@@ -1011,8 +1014,9 @@ cdef class Trie(object):
         cdef int offset = 0
 
         cdef char* buff = <char*>buf
-        memcpy(buff, <void*>&magic_number, sizeof(magic_number))
-        offset += sizeof(magic_number)
+        cdef uint32_t magic = magic_number
+        memcpy(buff, <void*>&magic, sizeof(magic))
+        offset += sizeof(magic)
 
         cdef int size = self.buff_size()
         memcpy(buff + offset, &size, sizeof(int))
@@ -1110,10 +1114,11 @@ cdef class Trie(object):
 cdef Trie trie_from_buff(void* buf, int buf_size, bool copy):
     cdef int offset = 0
     cdef Trie trie = new_object(Trie)
-    cdef int magic, size
+    cdef uint32_t magic 
+    cdef int size
     cdef char* buff = <char*>buf
-    memcpy(buff, <void*>&magic, sizeof(magic))
-    if magic != magic_number:
+    memcpy(<void*>&magic, buff, sizeof(magic))
+    if magic != magic_number and magic != legacy_magic_number:
         raise Exception("invalid data, magic number is not correct")
     offset += sizeof(magic)
 
