@@ -27,7 +27,7 @@ setup(
     author_email="nppoly@foxmail.com",
     packages=["cyac"],
     package_dir={'cyac': 'lib/cyac'},
-    package_data={'cyac': ['*.pxd', 'cyac/unicode_portability.cpp']},
+    package_data={'cyac': ['*.pxd', 'cyac/unicode_portability.c']},
     include_package_data=True,
     long_description_content_type="text/markdown",
     long_description=long_description,
@@ -37,7 +37,7 @@ setup(
         "lib/cyac/util.pyx",
         "lib/cyac/utf8.pyx",
         "lib/cyac/xstring.pyx",
-        "lib/cyac/trie.pyx", 
+        "lib/cyac/trie.pyx",
         "lib/cyac/ac.pyx"]),
     classifiers=[
         'Operating System :: POSIX :: Linux',
