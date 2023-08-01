@@ -5,9 +5,8 @@ from libc.stdlib cimport malloc, free, realloc
 from cython cimport typeof
 from .utf8 cimport fill_char_info, char_num
 from cython cimport Py_UCS4
-cdef extern from "unicode_portability.cpp":
-    pass
-cdef extern int _PyUnicode_ToLowerFull(Py_UCS4 ch, Py_UCS4* res)
+cdef extern from "unicode_portability.c":
+    cdef extern int _PyUnicode_ToLowerFull(Py_UCS4 ch, Py_UCS4* res)
 
 # from libc.wctype cimport towlower, towupper, iswlower, iswupper
 
@@ -26,7 +25,7 @@ cdef class xstring(object):
         self.chars = self.char_idx_of_byte + self.byte_num + 1
         self.char_offsets =self.chars + self.char_num
         fill_char_info(self.bytes_, self.char_idx_of_byte, self.chars, self.char_offsets)
-    
+
     property byte_num:
         def __get__(self):
             return self.byte_num
@@ -34,7 +33,7 @@ cdef class xstring(object):
     property char_num:
         def __get__(self):
             return self.char_num
-        
+
     cpdef int char_at(self, int i):
         if i >= self.char_num:
             return 0
@@ -54,7 +53,7 @@ cdef class xstring(object):
     def __str__(self):
         return str(self.py_bytes)
 
-  
+
 cdef class ignore_case_alignment(object):
     def __cinit__(self, xstring original):
         self.original = original
@@ -78,7 +77,7 @@ cdef class ignore_case_alignment(object):
         def __get__(self):
             return self.original
 
-    
+
 
     def alignment_array(self):
         return [self.lowercase_char_index_mapping[cidx] for cidx in range(len(self.lowercase.py_unicode))]
