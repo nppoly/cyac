@@ -19,7 +19,7 @@ except IOError:
     long_description = ""
 
 setup(
-    version="1.8",
+    version="1.9",
     description="High performance Trie and Ahocorasick automata (AC automata) for python",
     name="cyac",
     url="https://github.com/nppoly/cyac",
