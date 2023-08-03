@@ -5,4 +5,4 @@ global-exclude trie.cpp
 global-exclude utf8.cpp
 global-exclude xstring.cpp
 global-exclude __pycache__
-global-include unicode_portability.cpp
+global-include unicode_portability.c
